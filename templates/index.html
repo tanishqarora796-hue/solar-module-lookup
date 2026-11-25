@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Solar Module Electrical Parameter Lookup</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+        header {
+            background: #0f172a;
+            color: #ffffff;
+            padding: 20px 24px;
+            border-radius: 8px;
+            margin-bottom: 24px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+        }
+        header h1 {
+            margin: 0;
+            font-size: 1.5rem;
+            letter-spacing: 0.3px;
+        }
+        header p {
+            margin: 6px 0 0;
+            font-size: 0.9rem;
+            color: #94a3b8;
+        }
+        .card {
+            background: #ffffff;
+            padding: 20px 24px;
+            border-radius: 8px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+            margin-bottom: 24px;
+        }
+        h2 {
+            margin-top: 0;
+            font-size: 1.15rem;
+            color: #1e293b;
+        }
+        textarea {
+            width: 100%;
+            height: 150px;
+            padding: 12px;
+            font-family: monospace;
+            font-size: 0.95rem;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            box-sizing: border-box;
+            margin-bottom: 12px;
+        }
+        button {
+            padding: 10px 18px;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+        .btn-primary {
+            background: #2563eb;
+            color: #ffffff;
+        }
+        .btn-primary:hover {
+            background: #1d4ed8;
+        }
+        .btn-danger {
+            background: #dc2626;
+            color: #ffffff;
+            margin-left: 8px;
+        }
+        .btn-danger:hover {
+            background: #b91c1c;
+        }
+        .table-wrapper {
+            overflow-x: auto;
+            margin-top: 18px;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.9rem;
+            white-space: nowrap;
+        }
+        th, td {
+            border: 1px solid #cbd5e1;
+            padding: 9px 12px;
+            text-align: left;
+        }
+        th {
+            background: #e2e8f0;
+            color: #1e293b;
+            font-weight: 600;
+        }
+        tr:nth-child(even) {
+            background: #f8fafc;
+        }
+        .not-found {
+            color: #dc2626;
+            font-weight: 700;
+        }
+        .status-msg {
+            margin-top: 12px;
+            font-weight: 600;
+            color: #16a34a;
+        }
+        .error-msg {
+            color: #dc2626;
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <h1>Solar Module Electrical Parameter Lookup</h1>
+        <p>Master CSV Database & Bulk IV Test Parameter Verification System</p>
+    </header>
+
+    <!-- BLOCK 1: Upload & Maintain CSV -->
+    <div class="card">
+        <h2>1. Master CSV Record Upload</h2>
+        <input type="file" id="csvFile" accept=".csv">
+        <button class="btn-primary" onclick="uploadCSV()">Upload to Database</button>
+        <div id="uploadStatus" class="status-msg"></div>
+    </div>
+
+    <!-- BLOCK 2: Paste 35 Records & UI-Only Delete -->
+    <div class="card">
+        <h2>2. Bulk Electrical Parameter Lookup (Paste 35 Module IDs)</h2>
+        <textarea id="pasteBox" placeholder="Paste your 35 ModuleIDs here (one per line)..."></textarea>
+        <div>
+            <button class="btn-primary" onclick="fetchRecords()">Get Corresponding Values</button>
+            <button class="btn-danger" onclick="clearFromInterface()">Delete from Interface</button>
+        </div>
+
+        <div class="table-wrapper" id="tableWrapper" style="display:none;">
+            <table id="resultsTable">
+                <thead>
+                    <tr>
+                        {% for col in display_cols %}
+                        <th>{{ col }}</th>
+                        {% endfor %}
+                    </tr>
+                </thead>
+                <tbody id="resultsBody"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const displayCols = {{ display_cols | tojson }};
+
+        function getPowerRankStyle(rankValue) {
+            const rank = (rankValue || "").trim().toUpperCase();
+            if (rank === "600WPI1") return "background:#dcfce7; color:#166534; font-weight:700;"; // Green
+            if (rank === "600WPI2") return "background:#fef9c3; color:#854d0e; font-weight:700;"; // Yellow
+            if (rank === "600WPI3") return "background:#dbeafe; color:#1e40af; font-weight:700;"; // Blue
+            return "background:#fee2e2; color:#991b1b; font-weight:700;";                         // Red
+        }
+
+        async function uploadCSV() {
+            const fileInput = document.getElementById("csvFile");
+            const statusDiv = document.getElementById("uploadStatus");
+
+            if (!fileInput.files.length) {
+                alert("Please select a CSV file first.");
+                return;
+            }
+
+            statusDiv.className = "status-msg";
+            statusDiv.innerText = "Uploading and storing records...";
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            try {
+                const res = await fetch("/upload", { method: "POST", body: formData });
+                const data = await res.json();
+                if (!res.ok) {
+                    statusDiv.className = "status-msg error-msg";
+                    statusDiv.innerText = data.error || "Upload failed.";
+                } else {
+                    statusDiv.innerText = data.message;
+                    fileInput.value = "";
+                }
+            } catch (err) {
+                statusDiv.className = "status-msg error-msg";
+                statusDiv.innerText = "Error connecting to server.";
+            }
+        }
+
+        async function fetchRecords() {
+            const rawText = document.getElementById("pasteBox").value;
+            const keys = rawText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+
+            if (!keys.length) {
+                alert("Please paste at least one ModuleID.");
+                return;
+            }
+
+            try {
+                const res = await fetch("/lookup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ keys })
+                });
+
+                if (!res.ok) {
+                    alert("Server error while fetching records.");
+                    return;
+                }
+
+                const data = await res.json();
+                const tbody = document.getElementById("resultsBody");
+                tbody.innerHTML = "";
+
+                data.results.forEach(row => {
+                    const tr = document.createElement("tr");
+                    let cells = "";
+
+                    displayCols.forEach(col => {
+                        const val = row[col];
+                        if (val === "NOT FOUND") {
+                            cells += `<td class="not-found">${val}</td>`;
+                        } else if (col === "ModuleID") {
+                            cells += `<td><strong>${val}</strong></td>`;
+                        } else if (col === "PowerRank") {
+                            const style = getPowerRankStyle(val);
+                            cells += `<td style="${style}">${val}</td>`;
+                        } else {
+                            cells += `<td>${val}</td>`;
+                        }
+                    });
+
+                    tr.innerHTML = cells;
+                    tbody.appendChild(tr);
+                });
+
+                document.getElementById("tableWrapper").style.display = "block";
+            } catch (err) {
+                alert("Failed to fetch records. Check that the Flask server is running.");
+            }
+        }
+
+        function clearFromInterface() {
+            document.getElementById("pasteBox").value = "";
+            document.getElementById("resultsBody").innerHTML = "";
+            document.getElementById("tableWrapper").style.display = "none";
+        }
+    </script>
+</body>
+</html>
