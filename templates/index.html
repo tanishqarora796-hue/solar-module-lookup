@@ -1,48 +1,70 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Solar Module Electrical Parameter Lookup</title>
+    <title>Solar Module Verification System</title>
+
     <style>
         body {
             font-family: system-ui, -apple-system, sans-serif;
-            max-width: 1200px;
+            max-width: 1400px;
             margin: 0 auto;
             padding: 20px;
             background: #f1f5f9;
             color: #0f172a;
         }
+
         header {
             background: #0f172a;
-            color: #ffffff;
+            color: white;
             padding: 20px 24px;
             border-radius: 8px;
             margin-bottom: 24px;
-            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12);
+            box-shadow: 0 2px 6px rgba(0,0,0,0.12);
         }
+
         header h1 {
             margin: 0;
             font-size: 1.5rem;
-            letter-spacing: 0.3px;
         }
+
         header p {
             margin: 6px 0 0;
             font-size: 0.9rem;
             color: #94a3b8;
         }
+
         .card {
-            background: #ffffff;
+            background: white;
             padding: 20px 24px;
             border-radius: 8px;
-            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.06);
+            box-shadow: 0 2px 5px rgba(0,0,0,0.06);
             margin-bottom: 24px;
         }
+
         h2 {
             margin-top: 0;
             font-size: 1.15rem;
             color: #1e293b;
         }
+
+        .upload-section {
+            display: flex;
+            flex-wrap: wrap;
+            align-items: center;
+            gap: 12px;
+        }
+
+        input[type="file"] {
+            max-width: 100%;
+            padding: 8px;
+            border: 1px solid #cbd5e1;
+            border-radius: 6px;
+            background: #f8fafc;
+        }
+
         textarea {
             width: 100%;
             height: 150px;
@@ -54,6 +76,7 @@
             box-sizing: border-box;
             margin-bottom: 12px;
         }
+
         button {
             padding: 10px 18px;
             border: none;
@@ -62,196 +85,570 @@
             font-weight: 600;
             font-size: 0.9rem;
         }
+
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+
         .btn-primary {
             background: #2563eb;
-            color: #ffffff;
+            color: white;
         }
+
         .btn-primary:hover {
             background: #1d4ed8;
         }
+
         .btn-danger {
             background: #dc2626;
-            color: #ffffff;
+            color: white;
             margin-left: 8px;
         }
+
         .btn-danger:hover {
             background: #b91c1c;
         }
+
         .table-wrapper {
             overflow-x: auto;
             margin-top: 18px;
         }
+
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.9rem;
+            font-size: 0.85rem;
             white-space: nowrap;
         }
+
         th, td {
             border: 1px solid #cbd5e1;
             padding: 9px 12px;
             text-align: left;
         }
+
         th {
             background: #e2e8f0;
             color: #1e293b;
             font-weight: 600;
         }
-        tr:nth-child(even) {
+
+        tbody tr:nth-child(even) {
             background: #f8fafc;
         }
+
         .not-found {
             color: #dc2626;
             font-weight: 700;
         }
+
         .status-msg {
             margin-top: 12px;
             font-weight: 600;
             color: #16a34a;
         }
+
         .error-msg {
             color: #dc2626;
         }
-    </style>
-</head>
-<body>
 
-    <header>
-        <h1>Solar Module Electrical Parameter Lookup</h1>
-        <p>Master CSV Database & Bulk IV Test Parameter Verification System</p>
-    </header>
-
-    <!-- BLOCK 1: Upload & Maintain CSV -->
-    <div class="card">
-        <h2>1. Master CSV Record Upload</h2>
-        <input type="file" id="csvFile" accept=".csv">
-        <button class="btn-primary" onclick="uploadCSV()">Upload to Database</button>
-        <div id="uploadStatus" class="status-msg"></div>
-    </div>
-
-    <!-- BLOCK 2: Paste 35 Records & UI-Only Delete -->
-    <div class="card">
-        <h2>2. Bulk Electrical Parameter Lookup (Paste 35 Module IDs)</h2>
-        <textarea id="pasteBox" placeholder="Paste your 35 ModuleIDs here (one per line)..."></textarea>
-        <div>
-            <button class="btn-primary" onclick="fetchRecords()">Get Corresponding Values</button>
-            <button class="btn-danger" onclick="clearFromInterface()">Delete from Interface</button>
-        </div>
-
-        <div class="table-wrapper" id="tableWrapper" style="display:none;">
-            <table id="resultsTable">
-                <thead>
-                    <tr>
-                        {% for col in display_cols %}
-                        <th>{{ col }}</th>
-                        {% endfor %}
-                    </tr>
-                </thead>
-                <tbody id="resultsBody"></tbody>
-            </table>
-        </div>
-    </div>
-
-    <script>
-        const displayCols = {{ display_cols | tojson }};
-
-        function getPowerRankStyle(rankValue) {
-            const rank = (rankValue || "").trim().toUpperCase();
-            if (rank === "600WPI1") return "background:#dcfce7; color:#166534; font-weight:700;"; // Green
-            if (rank === "600WPI2") return "background:#fef9c3; color:#854d0e; font-weight:700;"; // Yellow
-            if (rank === "600WPI3") return "background:#dbeafe; color:#1e40af; font-weight:700;"; // Blue
-            return "background:#fee2e2; color:#991b1b; font-weight:700;";                         // Red
+        .status-ok {
+            background: #dcfce7;
+            color: #166534;
+            font-weight: 700;
+            text-align: center;
         }
 
-        async function uploadCSV() {
-            const fileInput = document.getElementById("csvFile");
-            const statusDiv = document.getElementById("uploadStatus");
+        .status-not-ok {
+            background: #fee2e2;
+            color: #991b1b;
+            font-weight: 700;
+            text-align: center;
+        }
 
-            if (!fileInput.files.length) {
-                alert("Please select a CSV file first.");
+        .status-missing {
+            background: #e5e7eb;
+            color: #374151;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .power-rank {
+            font-weight: 700;
+        }
+
+        .info-text {
+            color: #64748b;
+            font-size: 0.85rem;
+            margin-top: 8px;
+        }
+
+        @media (max-width: 600px) {
+            body {
+                padding: 10px;
+            }
+
+            .card {
+                padding: 16px;
+            }
+
+            header h1 {
+                font-size: 1.2rem;
+            }
+
+            button {
+                margin: 4px 0;
+            }
+
+            .btn-danger {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+
+<body>
+
+<header>
+    <h1>Solar Module Verification System</h1>
+    <p>Production Records & RF Electrical Parameter Verification</p>
+</header>
+
+<!-- BLOCK 1: PRODUCTION CSV UPLOAD -->
+
+<div class="card">
+
+    <h2>1. Master Production CSV Upload</h2>
+
+    <div class="upload-section">
+
+        <input
+            type="file"
+            id="csvFile"
+            accept=".csv"
+        >
+
+        <button
+            class="btn-primary"
+            id="uploadBtn"
+            onclick="uploadCSV()"
+        >
+            Upload Production Records
+        </button>
+        <button type="button" onclick="deleteDatabase('/delete_production')">
+            Delete Production Records
+        </button>
+
+    </div>
+
+    <div id="uploadStatus" class="status-msg"></div>
+
+    <p class="info-text">
+        Upload the main production CSV containing ModuleID and electrical parameters.
+    </p>
+
+</div>
+
+
+<!-- BLOCK 2: RF RECORD UPLOAD -->
+
+<div class="card">
+
+    <h2>2. RF Records Upload</h2>
+
+    <div class="upload-section">
+
+        <input
+            type="file"
+            id="rfFile"
+            accept=".csv,.xls,.xlsx"
+        >
+
+        <button
+            class="btn-primary"
+            id="rfUploadBtn"
+            onclick="uploadRF()"
+        >
+            Upload RF Records
+        </button>
+
+        <button type="button" onclick="deleteDatabase('/delete_rf')">
+            Delete RF Records
+        </button>
+
+    </div>
+
+    <div id="rfUploadStatus" class="status-msg"></div>
+
+    <p class="info-text">
+        Upload RF testing records in CSV or Excel format.
+        The file must contain Serial and PMAX columns.
+    </p>
+
+</div>
+
+
+<!-- BLOCK 3: BULK MODULE LOOKUP -->
+
+<div class="card">
+
+    <h2>3. Bulk Module Verification</h2>
+
+    <textarea
+        id="pasteBox"
+        placeholder="Paste ModuleIDs here (one per line)..."
+    ></textarea>
+
+    <div>
+
+        <button
+            class="btn-primary"
+            id="lookupBtn"
+            onclick="fetchRecords()"
+        >
+            Verify Modules
+        </button>
+
+        <button
+            class="btn-danger"
+            onclick="clearFromInterface()"
+        >
+            Clear Results
+        </button>
+
+    </div>
+
+    <div
+        class="table-wrapper"
+        id="tableWrapper"
+        style="display:none;"
+    >
+
+        <table id="resultsTable">
+
+            <thead>
+                <tr>
+                    {% for col in display_cols %}
+                    <th>{{ col }}</th>
+                    {% endfor %}
+                </tr>
+            </thead>
+
+            <tbody id="resultsBody"></tbody>
+
+        </table>
+
+    </div>
+
+</div>
+
+
+<script>
+
+    const displayCols = {{ display_cols | tojson }};
+
+
+    // POWER RANK COLOUR CODING
+
+    function getPowerRankStyle(rankValue) {
+
+        const rank = (rankValue || "").trim().toUpperCase();
+
+        if (rank === "600WPI1") {
+            return "background:#dcfce7;color:#166534;font-weight:700;";
+        }
+
+        if (rank === "600WPI2") {
+            return "background:#fef9c3;color:#854d0e;font-weight:700;";
+        }
+
+        if (rank === "600WPI3") {
+            return "background:#dbeafe;color:#1e40af;font-weight:700;";
+        }
+
+        return "background:#fee2e2;color:#991b1b;font-weight:700;";
+    }
+
+
+    // COMMON UPLOAD FUNCTION
+
+    async function uploadFile(fileInputId, statusId, buttonId, endpoint) {
+
+        const fileInput = document.getElementById(fileInputId);
+        const statusDiv = document.getElementById(statusId);
+        const button = document.getElementById(buttonId);
+
+        if (!fileInput.files.length) {
+            alert("Please select a file first.");
+            return;
+        }
+
+        const formData = new FormData();
+
+        formData.append("file", fileInput.files[0]);
+
+        button.disabled = true;
+
+        statusDiv.className = "status-msg";
+        statusDiv.innerText = "Uploading and processing file...";
+
+        try {
+
+            const response = await fetch(endpoint, {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+
+                statusDiv.className = "status-msg error-msg";
+                statusDiv.innerText = data.error || "Upload failed.";
+
+                if (data.duplicates) {
+                    statusDiv.innerText +=
+                        " Duplicate IDs: " + data.duplicates.join(", ");
+                }
+
                 return;
             }
 
             statusDiv.className = "status-msg";
-            statusDiv.innerText = "Uploading and storing records...";
+            statusDiv.innerText = data.message;
 
-            const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
+            fileInput.value = "";
 
-            try {
-                const res = await fetch("/upload", { method: "POST", body: formData });
-                const data = await res.json();
-                if (!res.ok) {
-                    statusDiv.className = "status-msg error-msg";
-                    statusDiv.innerText = data.error || "Upload failed.";
-                } else {
-                    statusDiv.innerText = data.message;
-                    fileInput.value = "";
-                }
-            } catch (err) {
-                statusDiv.className = "status-msg error-msg";
-                statusDiv.innerText = "Error connecting to server.";
-            }
+        } catch (error) {
+
+            statusDiv.className = "status-msg error-msg";
+            statusDiv.innerText = "Error connecting to server.";
+
+            console.error(error);
+
+        } finally {
+
+            button.disabled = false;
+
+        }
+    }
+
+
+    // PRODUCTION CSV UPLOAD
+
+    async function uploadCSV() {
+
+        await uploadFile(
+            "csvFile",
+            "uploadStatus",
+            "uploadBtn",
+            "/upload"
+        );
+
+    }
+
+
+    // RF RECORD UPLOAD
+
+    async function uploadRF() {
+
+        await uploadFile(
+            "rfFile",
+            "rfUploadStatus",
+            "rfUploadBtn",
+            "/upload_rf"
+        );
+
+    }
+
+
+    // RFID STATUS COLOUR CODING
+
+    function getRFStatusClass(status) {
+
+        if (status === "OK") {
+            return "status-ok";
         }
 
-        async function fetchRecords() {
-            const rawText = document.getElementById("pasteBox").value;
-            const keys = rawText.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+        if (status === "NOT OK") {
+            return "status-not-ok";
+        }
 
-            if (!keys.length) {
-                alert("Please paste at least one ModuleID.");
+        return "status-missing";
+    }
+
+
+    // BULK MODULE LOOKUP
+
+    async function fetchRecords() {
+
+        const rawText = document.getElementById("pasteBox").value;
+
+        const keys = rawText
+            .split(/\r?\n/)
+            .map(line => line.trim())
+            .filter(Boolean);
+
+        if (!keys.length) {
+            alert("Please paste at least one ModuleID.");
+            return;
+        }
+
+        const lookupBtn = document.getElementById("lookupBtn");
+
+        lookupBtn.disabled = true;
+        lookupBtn.innerText = "Verifying...";
+
+        try {
+
+            const response = await fetch("/lookup", {
+
+                method: "POST",
+
+                headers: {
+                    "Content-Type": "application/json"
+                },
+
+                body: JSON.stringify({ keys })
+
+            });
+
+            const data = await response.json();
+
+            if (!response.ok) {
+                alert(data.error || "Server error while fetching records.");
                 return;
             }
 
-            try {
-                const res = await fetch("/lookup", {
-                    method: "POST",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ keys })
+            const tbody = document.getElementById("resultsBody");
+
+            tbody.innerHTML = "";
+
+            data.results.forEach(row => {
+
+                const tr = document.createElement("tr");
+
+                displayCols.forEach(col => {
+
+                    const td = document.createElement("td");
+
+                    const value = row[col] ?? "";
+
+                    td.textContent = value;
+
+                    // MODULE ID
+
+                    if (col === "ModuleID") {
+                        const strong = document.createElement("strong");
+                        strong.textContent = value;
+
+                        td.textContent = "";
+                        td.appendChild(strong);
+                    }
+
+                    // POWER RANK
+
+                    else if (col === "PowerRank") {
+
+                        td.className = "power-rank";
+                        td.style.cssText = getPowerRankStyle(value);
+
+                    }
+
+                    // RFID STATUS
+
+                    else if (col === "RFID_STATUS") {
+
+                        td.className = getRFStatusClass(value);
+
+                    }
+
+                    // RFID PMAX MISSING
+
+                    else if (col === "RFID_Pmax" && value === "MISSING") {
+
+                        td.className = "status-missing";
+
+                    }
+
+                    // OTHER NOT FOUND VALUES
+
+                    else if (value === "NOT FOUND") {
+
+                        td.className = "not-found";
+
+                    }
+
+                    tr.appendChild(td);
+
                 });
 
-                if (!res.ok) {
-                    alert("Server error while fetching records.");
-                    return;
-                }
+                tbody.appendChild(tr);
 
-                const data = await res.json();
-                const tbody = document.getElementById("resultsBody");
-                tbody.innerHTML = "";
+            });
 
-                data.results.forEach(row => {
-                    const tr = document.createElement("tr");
-                    let cells = "";
+            document.getElementById("tableWrapper").style.display = "block";
 
-                    displayCols.forEach(col => {
-                        const val = row[col];
-                        if (val === "NOT FOUND") {
-                            cells += `<td class="not-found">${val}</td>`;
-                        } else if (col === "ModuleID") {
-                            cells += `<td><strong>${val}</strong></td>`;
-                        } else if (col === "PowerRank") {
-                            const style = getPowerRankStyle(val);
-                            cells += `<td style="${style}">${val}</td>`;
-                        } else {
-                            cells += `<td>${val}</td>`;
-                        }
-                    });
+        } catch (error) {
 
-                    tr.innerHTML = cells;
-                    tbody.appendChild(tr);
-                });
+            alert("Failed to fetch records. Check that Flask is running.");
 
-                document.getElementById("tableWrapper").style.display = "block";
-            } catch (err) {
-                alert("Failed to fetch records. Check that the Flask server is running.");
-            }
+            console.error(error);
+
+        } finally {
+
+            lookupBtn.disabled = false;
+            lookupBtn.innerText = "Verify Modules";
+
         }
 
-        function clearFromInterface() {
-            document.getElementById("pasteBox").value = "";
-            document.getElementById("resultsBody").innerHTML = "";
-            document.getElementById("tableWrapper").style.display = "none";
+    }
+
+
+    // CLEAR RESULTS FROM INTERFACE ONLY
+
+    function clearFromInterface() {
+
+        document.getElementById("pasteBox").value = "";
+
+        document.getElementById("resultsBody").innerHTML = "";
+
+        document.getElementById("tableWrapper").style.display = "none";
+
+    }
+
+    async function deleteDatabase(endpoint) {
+    const confirmed = confirm(
+        "Are you sure? This will permanently delete the uploaded records from the database."
+    );
+
+    if (!confirmed) return;
+
+    try {
+        const response = await fetch(endpoint, {
+            method: "POST"
+        });
+
+        const data = await response.json();
+
+        if (!response.ok || !data.success) {
+            alert(data.message || "Unable to delete records.");
+            return;
         }
-    </script>
+
+        alert(data.message);
+
+        // Clear displayed results as well
+        document.getElementById("resultsBody").innerHTML = "";
+
+    } catch (error) {
+        alert("Server error while deleting records.");
+        console.error(error);
+    }
+}
+
+</script>
+
 </body>
 </html>
